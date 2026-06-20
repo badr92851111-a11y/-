@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام صيانة الوحدات العائمة</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --pr:#0d47a1;--pr-d:#002171;--pr-l:#42a5f5;
+  --acc:#ff6f00;--acc-l:#ff9800;
+  --dan:#d32f2f;--suc:#2e7d32;--warn:#f57c00;
+  --inf:#0277bd;--light:#f0f2f5;--dark:#1a1a2e;
+}
+body{font-family:'Cairo',sans-serif;background:var(--light);color:var(--dark);line-height:1.6;font-size:14px;min-height:100vh}
+.app{max-width:1200px;margin:0 auto;min-height:100vh;background:var(--light)}
+.loading-screen{position:fixed;inset:0;background:linear-gradient(135deg,#0d47a1,#002171);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff}
+.loading-screen .spin{font-size:3rem;animation:spin 1s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen p{font-size:1.1rem;font-weight:600;opacity:.8}
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);padding:20px}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 16px 48px rgba(0,0,0,.2);text-align:center}
+.login-box .logo{font-size:3.5rem;margin-bottom:12px}
+.login-box h1{color:var(--pr);font-size:1.5rem;font-weight:800;margin-bottom:6px}
+.login-box .sub{color:#888;margin-bottom:28px;font-size:.95rem}
+.header{background:linear-gradient(135deg,var(--pr),var(--pr-d));color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.header h1{font-size:1.1rem;font-weight:800}
+.user-info{display:flex;align-items:center;gap:10px;font-size:.85rem}
+.role-badge{background:rgba(255,255,255,.15);padding:4px 12px;border-radius:50px;font-size:.75rem;font-weight:700}
+.nav{display:flex;background:var(--pr-d);overflow-x:auto;scrollbar-width:none;gap:3px;padding:3px}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{flex:1;min-width:80px;padding:11px 8px;text-align:center;color:rgba(255,255,255,.6);cursor:pointer;border:none;background:none;font-size:.78rem;font-weight:600;transition:.25s;white-space:nowrap;border-radius:6px;font-family:'Cairo',sans-serif}
+.nav-btn.active{color:#fff;background:linear-gradient(135deg,var(--acc),var(--acc-l));font-weight:700}
+.nav-btn:hover:not(.active){background:rgba(255,255,255,.1);color:#fff}
+.page{display:none;padding:20px;animation:fadeIn .3s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 4px 12px rgba(0,0,0,.1);border:1px solid rgba(0,0,0,.04)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--light)}
+.card-title{font-size:1.1rem;color:var(--pr);font-weight:700}
+.btn{padding:10px 20px;border:none;border-radius:50px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.25s;display:inline-flex;align-items:center;gap:6px;font-family:'Cairo',sans-serif}
+.btn-primary{background:linear-gradient(135deg,var(--pr),#1565c0);color:#fff;box-shadow:0 3px 10px rgba(13,71,161,.3)}
+.btn-success{background:linear-gradient(135deg,var(--suc),#43a047);color:#fff;box-shadow:0 3px 10px rgba(46,125,50,.3)}
+.btn-danger{background:linear-gradient(135deg,var(--dan),#c62828);color:#fff;box-shadow:0 3px 10px rgba(211,47,47,.3)}
+.btn-warning{background:linear-gradient(135deg,var(--warn),#ff8f00);color:#fff;box-shadow:0 3px 10px rgba(245,124,0,.3)}
+.btn-secondary{background:linear-gradient(135deg,var(--inf),#0288d1);color:#fff;box-shadow:0 3px 10px rgba(2,119,189,.3)}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.btn-sm{padding:7px 14px;font-size:.77rem}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+.form-group{margin-bottom:16px}
+.form-label{display:block;margin-bottom:6px;font-weight:700;color:var(--dark);font-size:.87rem}
+.form-input,.form-select,.form-textarea{width:100%;padding:12px 14px;border:2px solid #e0e0e0;border-radius:10px;font-size:.95rem;font-family:'Cairo',sans-serif;transition:.2s;background:#fafafa}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--pr-l);background:#fff;box-shadow:0 0 0 3px rgba(66,165,245,.15)}
+.form-textarea{min-height:100px;resize:vertical}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.unit-card{background:#fff;border-radius:14px;padding:22px;cursor:pointer;transition:.25s;box-shadow:0 4px 12px rgba(0,0,0,.1);border-right:5px solid var(--pr)}
+.unit-card:hover{transform:translateY(-6px);box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.unit-icon{font-size:2.5rem;margin-bottom:12px}
+.unit-name{font-size:1.1rem;font-weight:700;color:var(--pr);margin-bottom:6px}
+.unit-location{color:#666;font-size:.9rem}
+.unit-code{color:#aaa;font-size:.8rem;margin-top:6px;font-weight:600}
+.unit-status{display:inline-block;padding:5px 14px;border-radius:50px;font-size:.77rem;font-weight:700;margin-top:12px}
+.s-active{background:#e8f5e9;color:#2e7d32}
+.s-maint{background:#fff3e0;color:#ef6c00}
+.s-out{background:#ffebee;color:#c62828}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:14px;padding:22px;box-shadow:0 4px 12px rgba(0,0,0,.1);text-align:center;transition:.25s;border-top:4px solid var(--pr)}
+.stat-card:hover{transform:translateY(-4px)}
+.stat-icon{font-size:2rem;margin-bottom:8px}
+.stat-num{font-size:2rem;font-weight:800;color:var(--pr)}
+.stat-label{color:#666;font-size:.85rem;margin-top:4px;font-weight:600}
+.table-wrap{overflow-x:auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+table{width:100%;border-collapse:collapse;background:#fff;min-width:450px}
+th{background:linear-gradient(135deg,var(--pr),#1565c0);color:#fff;padding:12px;text-align:right;font-weight:700;font-size:.85rem}
+td{padding:12px;border-bottom:1px solid #f0f0f0;font-size:.85rem}
+tr:hover td{background:#f8f9fa}
+.badge{padding:4px 12px;border-radius:50px;font-size:.75rem;font-weight:700}
+.b-success{background:#e8f5e9;color:#2e7d32}
+.b-warning{background:#fff3e0;color:#ef6c00}
+.b-danger{background:#ffebee;color:#c62828}
+.b-info{background:#e3f2fd;color:#1565c0}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;justify-content:center;align-items:flex-start;padding:20px;backdrop-filter:blur(6px);overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;margin:auto;animation:mIn .35s cubic-bezier(.4,0,.2,1);box-shadow:0 16px 48px rgba(0,0,0,.2)}
+@keyframes mIn{from{transform:scale(.92) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.modal-header{padding:18px 20px;border-bottom:2px solid var(--light);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fafafa,#f0f2f5);border-radius:16px 16px 0 0}
+.modal-header h2{color:var(--pr);font-size:1.1rem;font-weight:700}
+.modal-close{background:none;border:none;font-size:1.7rem;cursor:pointer;color:#999;transition:.2s;line-height:1}
+.modal-close:hover{color:var(--dan);transform:rotate(90deg)}
+.modal-body{padding:20px;max-height:65vh;overflow-y:auto}
+.modal-footer{padding:14px 20px;border-top:2px solid var(--light);display:flex;gap:10px;justify-content:flex-end;background:#fafafa;border-radius:0 0 16px 16px}
+.ticker{background:linear-gradient(135deg,#1a237e,var(--pr));color:#fff;padding:10px 0;overflow:hidden;position:relative}
+.ticker-inner{display:flex;gap:60px;white-space:nowrap;animation:scroll 35s linear infinite}
+.ticker-inner:hover{animation-play-state:paused}
+.ticker-item{font-size:.85rem;font-weight:600;padding:0 8px}
+.ticker-item.urgent{color:#ffcc02;font-weight:800}
+.ticker-item.spare{color:#a5f3fc}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ticker-label{position:absolute;right:0;top:0;bottom:0;background:var(--acc);padding:0 14px;display:flex;align-items:center;font-weight:700;font-size:.78rem;z-index:1;white-space:nowrap}
+.inst-card{background:#fff;border-radius:10px;padding:16px;margin-bottom:10px;border-right:4px solid var(--acc);box-shadow:0 2px 6px rgba(0,0,0,.06);transition:.2s}
+.inst-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateX(-3px)}
+.inst-head{display:flex;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.inst-from{font-weight:700;color:var(--pr);font-size:.88rem}
+.inst-date{color:#aaa;font-size:.8rem}
+.inst-text{color:#444;font-size:.9rem;line-height:1.7}
+.p-high{background:#ffebee;color:#c62828}
+.p-med{background:#fff3e0;color:#ef6c00}
+.p-low{background:#e8f5e9;color:#2e7d32}
+.p-urg{background:#f3e5f5;color:#6a1b9a}
+.log-entry{background:#f8f9fa;border-radius:8px;padding:14px;margin-bottom:8px;border-right:3px solid var(--suc);transition:.2s}
+.log-entry:hover{background:#e8f5e9}
+.log-head{display:flex;justify-content:space-between;font-size:.8rem;color:#666;margin-bottom:6px;flex-wrap:wrap;gap:4px}
+.log-tech{font-weight:700;color:var(--pr)}
+.log-notes{color:#444;font-size:.87rem;line-height:1.6}
+.log-photos{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.log-photos img{width:60px;height:60px;object-fit:cover;border-radius:7px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.1);transition:.2s}
+.log-photos img:hover{transform:scale(1.15)}
+.mtype-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px}
+.mtype-card{background:#fff;border-radius:14px;padding:24px;text-align:center;cursor:pointer;transition:.25s;box-shadow:0 4px 12px rgba(0,0,0,.1);border-bottom:4px solid transparent}
+.mtype-card:hover{transform:translateY(-6px);box-shadow:0 8px 24px rgba(0,0,0,.15);border-bottom-color:var(--acc)}
+.mtype-card .icon{font-size:2.8rem;margin-bottom:12px}
+.mtype-card h3{color:var(--pr);margin-bottom:8px;font-size:1rem}
+.mtype-card p{color:#666;font-size:.83rem}
+.period-item{background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.period-item.overdue{border-right:4px solid var(--dan)}
+.period-item.due-soon{border-right:4px solid var(--warn)}
+.period-item.ok{border-right:4px solid var(--suc)}
+.pi-name{font-weight:600;color:var(--dark);font-size:.9rem}
+.pi-sub{color:#888;font-size:.8rem;margin-top:2px}
+.spare-item{background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-right:4px solid var(--inf)}
+.spare-item.fulfilled{border-right-color:var(--suc);opacity:.65}
+.spare-head{flex:1;min-width:0}
+.spare-name{font-weight:700;color:var(--dark);font-size:.9rem}
+.spare-sub{color:#888;font-size:.8rem;margin-top:2px}
+.search-box{position:relative;margin-bottom:16px}
+.search-box input{width:100%;padding:12px 14px 12px 42px;border:2px solid #e0e0e0;border-radius:50px;font-size:.93rem;font-family:'Cairo',sans-serif;transition:.2s;background:#fafafa}
+.search-box input:focus{outline:none;border-color:var(--pr-l);background:#fff;box-shadow:0 0 0 3px rgba(66,165,245,.15)}
+.search-box::before{content:"🔍";position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:1rem}
+.empty{text-align:center;padding:40px;color:#aaa}
+.empty .ei{font-size:3rem;margin-bottom:14px}
+.empty p{font-size:1rem;font-weight:600}
+.toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:#1a1a2e;color:#fff;padding:12px 20px;border-radius:10px;font-size:.88rem;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);animation:toastIn .3s ease;min-width:200px;text-align:center}
+.toast.success{border-bottom:3px solid var(--suc)}
+.toast.danger{border-bottom:3px solid var(--dan)}
+.toast.warning{border-bottom:3px solid var(--warn)}
+@keyframes toastIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.photo-upload{border:2px dashed #c0c0c0;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:.2s;background:#fafafa;font-weight:600;color:#666}
+.photo-upload:hover{border-color:var(--pr-l);background:#e3f2fd;color:var(--pr)}
+.photo-preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:10px}
+.photo-preview img{width:100%;height:80px;object-fit:cover;border-radius:7px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.report-section{margin-top:18px}
+.report-title{font-size:1rem;font-weight:700;color:var(--pr);margin-bottom:10px;margin-top:18px;padding-bottom:6px;border-bottom:2px solid var(--light)}
+.sync-bar{background:#e8f5e9;color:#2e7d32;padding:6px 16px;font-size:.8rem;font-weight:700;text-align:center;display:none}
+.sync-bar.show{display:block}
+.sync-bar.error{background:#ffebee;color:#c62828}
+@media(max-width:600px){
+  .header h1{font-size:.9rem}
+  .nav-btn{font-size:.7rem;padding:9px 5px;min-width:60px}
+  .grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .form-row{grid-template-columns:1fr}
+  .card{padding:14px}
+  .login-box{padding:26px 16px}
+  .mtype-grid{grid-template-columns:1fr}
+}
+@media print{
+  .header,.nav,.ticker,.btn,.toasts,.sync-bar{display:none!important}
+  .page{display:block!important}
+  .card{box-shadow:none;border:1px solid #ddd}
+}
+</style>
+</head>
+<body>
+<div id="toasts" class="toasts"></div>
+
+<div id="loadingScreen" class="loading-screen">
+  <div class="spin">⚓</div>
+  <p id="loadingMsg">جاري الاتصال بقاعدة البيانات المشتركة...</p>
+</div>
+
+<div id="loginPage" class="login-page" style="display:none">
+  <div class="login-box">
+    <div class="logo">🚢</div>
+    <h1>نظام صيانة الوحدات العائمة</h1>
+    <p class="sub">البيانات مشتركة بين جميع أفراد الفريق</p>
+    <div class="form-group">
+      <label class="form-label">اسم المستخدم</label>
+      <input type="text" class="form-input" id="lgUser" placeholder="أدخل اسم المستخدم">
+    </div>
+    <div class="form-group">
+      <label class="form-label">كلمة المرور</label>
+      <input type="password" class="form-input" id="lgPass" placeholder="أدخل كلمة المرور" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">🔐 تسجيل الدخول</button>
+    <div style="margin-top:16px;background:#f0f2f5;border-radius:10px;padding:12px;text-align:right;font-size:.82rem;color:#555">
+      <strong>الحسابات الافتراضية:</strong><br>
+      👨‍💻 admin / admin123 (مدير)<br>
+      👨‍💼 مشرف / super123 (مشرف)<br>
+      👷 فني1 / tech123 (فني)
+    </div>
+  </div>
+</div>
+
+<div id="mainApp" style="display:none">
+  <div class="app">
+    <div class="header">
+      <h1>🚢 نظام صيانة الوحدات العائمة</h1>
+      <div class="user-info">
+        <span id="hUserName">...</span>
+        <span class="role-badge" id="hRole">...</span>
+        <button class="btn btn-danger btn-sm" onclick="doLogout()">🚪 خروج</button>
+      </div>
+    </div>
+
+    <div id="syncBar" class="sync-bar">⚡ تم مزامنة البيانات مع الخادم</div>
+
+    <div id="tickerBar" class="ticker" style="display:none">
+      <div class="ticker-label">🔔 إشعارات</div>
+      <div style="padding-right:110px;overflow:hidden">
+        <div class="ticker-inner" id="tickerInner"></div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="nav-btn active" onclick="showPage('dashboard')">📊 الرئيسية</button>
+      <button class="nav-btn" onclick="showPage('units')">🚢 الوحدات</button>
+      <button class="nav-btn" onclick="showPage('maintenance')">🔧 الصيانة</button>
+      <button class="nav-btn" onclick="showPage('instructions')">📋 التعليمات</button>
+      <button class="nav-btn" onclick="showPage('spareparts')">🔩 قطع الغيار</button>
+      <button class="nav-btn" onclick="showPage('reports')">📈 التقارير</button>
+      <button class="nav-btn" id="navAdmin" style="display:none" onclick="showPage('admin')">⚙️ الإدارة</button>
+    </div>
+
+    <div id="dashboard" class="page active">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">🚢</div><div class="stat-num" id="sUnits">0</div><div class="stat-label">الوحدات</div></div>
+        <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-num" id="sTechs">0</div><div class="stat-label">الفنيين</div></div>
+        <div class="stat-card"><div class="stat-icon">🔧</div><div class="stat-num" id="sMaint">0</div><div class="stat-label">عمليات الصيانة</div></div>
+        <div class="stat-card" style="border-top-color:var(--dan)"><div class="stat-icon">⚠️</div><div class="stat-num" id="sOverdue" style="color:var(--dan)">0</div><div class="stat-label">متأخرات</div></div>
+        <div class="stat-card" style="border-top-color:var(--acc)"><div class="stat-icon">🔩</div><div class="stat-num" id="sSpare" style="color:var(--acc)">0</div><div class="stat-label">طلبات غيار</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📋 آخر التعليمات</span></div>
+        <div id="dashInst"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">⚠️ بنود متأخرة</span></div>
+        <div id="dashOverdue"></div>
+      </div>
+    </div>
+
+    <div id="units" class="page">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🚢 الوحدات العائمة</span>
+          <button class="btn btn-success btn-sm" id="btnAddUnit" style="display:none" onclick="openModal('unitModal')">➕ إضافة</button>
+        </div>
+        <div class="search-box"><input type="text" id="unitSearch" placeholder="بحث في الوحدات..." oninput="renderUnits()"></div>
+        <div class="grid" id="unitsGrid"></div>
+      </div>
+    </div>
+
+    <div id="maintenance" class="page">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔧 الصيانة</span></div>
+        <div id="maintContent">
+          <div class="empty"><div class="ei">🚢</div><p>اختر وحدة من صفحة الوحدات</p><button class="btn btn-primary" style="margin-top:12px" onclick="showPage('units')">الذهاب للوحدات</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="instructions" class="page">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 التعليمات</span>
+          <button class="btn btn-primary btn-sm" id="btnAddInst" style="display:none" onclick="openModal('instModal')">➕ تعليمات جديدة</button>
+        </div>
+        <div id="instList"></div>
+      </div>
+    </div>
+
+    <div id="spareparts" class="page">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🔩 طلبات قطع الغيار</span>
+          <button class="btn btn-success btn-sm" onclick="openModal('spareModal')">➕ طلب جديد</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="setSpareFilter('all')">الكل</button>
+          <button class="btn btn-sm" style="background:#fff3e0;color:#ef6c00" onclick="setSpareFilter('pending')">⏳ قيد الانتظار</button>
+          <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32" onclick="setSpareFilter('fulfilled')">✅ تم التوفير</button>
+        </div>
+        <div id="spareList"></div>
+      </div>
+    </div>
+
+    <div id="reports" class="page">
+      <div class="card">
+        <div class="card-header"><span class="card-title">📈 التقارير</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">نوع التقرير</label>
+            <select class="form-select" id="rType" onchange="prepReport()">
+              <option value="unit">🚢 أعمال وحدة</option>
+              <option value="tech">👷 أعمال فني</option>
+              <option value="overdue">⚠️ المتأخرات</option>
+              <option value="spare">🔩 قطع الغيار</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">الفني / الوحدة</label>
+            <select class="form-select" id="rTarget"><option value="">الكل</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">من تاريخ</label><input type="date" class="form-input" id="rFrom"></div>
+          <div class="form-group"><label class="form-label">إلى تاريخ</label><input type="date" class="form-input" id="rTo"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary btn-sm" onclick="genReport()">📊 عرض التقرير</button>
+          <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ طباعة</button>
+        </div>
+        <div id="reportResult"></div>
+      </div>
+    </div>
+
+    <div id="admin" class="page">
+      <div class="card">
+        <div class="card-header"><span class="card-title">⚙️ لوحة الإدارة</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn btn-primary btn-sm" onclick="showAdm('users')">👥 المستخدمين</button>
+          <button class="btn btn-primary btn-sm" onclick="showAdm('aunits')">🚢 الوحدات</button>
+          <button class="btn btn-primary btn-sm" onclick="showAdm('items')">📋 بنود الصيانة</button>
+          <button class="btn btn-warning btn-sm" onclick="showAdm('data')">💾 البيانات</button>
+        </div>
+        <div id="admUsers">
+          <div class="card-header"><span class="card-title">👥 المستخدمين</span><button class="btn btn-success btn-sm" onclick="openModal('userModal')">➕ جديد</button></div>
+          <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>المستخدم</th><th>الدور</th><th>إجراءات</th></tr></thead><tbody id="tUsers"></tbody></table></div>
+        </div>
+        <div id="admAunits" style="display:none">
+          <div class="card-header"><span class="card-title">🚢 الوحدات</span><button class="btn btn-success btn-sm" onclick="openModal('unitModal')">➕ جديدة</button></div>
+          <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموقع</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="tAdmUnits"></tbody></table></div>
+        </div>
+        <div id="admItems" style="display:none">
+          <div class="card-header"><span class="card-title">📋 بنود الصيانة الدورية</span><button class="btn btn-success btn-sm" onclick="openModal('itemModal')">➕ جديد</button></div>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>البند</th><th>الفئة</th><th>الفترة (يوم)</th><th>إجراءات</th></tr></thead><tbody id="tItems"></tbody></table></div>
+        </div>
+        <div id="admData" style="display:none">
+          <div style="display:grid;gap:12px">
+            <div class="card"><h3 style="margin-bottom:8px">📤 تصدير البيانات</h3><p style="color:#666;font-size:.85rem;margin-bottom:10px">تصدير نسخة احتياطية JSON</p><button class="btn btn-primary btn-sm" onclick="exportData()">📥 تصدير JSON</button></div>
+            <div class="card"><h3 style="margin-bottom:8px;color:var(--dan)">⚠️ إعادة تعيين</h3><p style="color:#666;font-size:.85rem;margin-bottom:10px">حذف جميع البيانات وإعادة التهيئة</p><button class="btn btn-danger btn-sm" onclick="resetData()">🗑️ إعادة تعيين الكل</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="userModal"><div class="modal">
+  <div class="modal-header"><h2>👤 مستخدم</h2><button class="modal-close" onclick="closeModal('userModal')">&times;</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="uId">
+    <div class="form-group"><label class="form-label">الاسم الكامل</label><input type="text" class="form-input" id="uName"></div>
+    <div class="form-group"><label class="form-label">اسم المستخدم</label><input type="text" class="form-input" id="uUser"></div>
+    <div class="form-group"><label class="form-label">كلمة المرور</label><input type="password" class="form-input" id="uPass"></div>
+    <div class="form-group"><label class="form-label">الدور</label><select class="form-select" id="uRole"><option value="technician">👷 فني</option><option value="supervisor">👨‍💼 مشرف</option><option value="admin">👨‍💻 مدير</option></select></div>
+    <div class="form-group"><label class="form-label">رقم الهاتف</label><input type="tel" class="form-input" id="uPhone"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('userModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="saveUser()">💾 حفظ</button></div>
+</div></div>
+
+<div class="modal-overlay" id="unitModal"><div class="modal">
+  <div class="modal-header"><h2>🚢 وحدة عائمة</h2><button class="modal-close" onclick="closeModal('unitModal')">&times;</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="unId">
+    <div class="form-group"><label class="form-label">كود الوحدة</label><input type="text" class="form-input" id="unCode" placeholder="UNIT-001"></div>
+    <div class="form-group"><label class="form-label">اسم الوحدة</label><input type="text" class="form-input" id="unName"></div>
+    <div class="form-group"><label class="form-label">الموقع</label><input type="text" class="form-input" id="unLocation"></div>
+    <div class="form-group"><label class="form-label">الحالة</label><select class="form-select" id="unStatus"><option value="active">✅ نشطة</option><option value="maintenance">🔧 تحت الصيانة</option><option value="out">❌ خارج الخدمة</option></select></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('unitModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="saveUnit()">💾 حفظ</button></div>
+</div></div>
+
+<div class="modal-overlay" id="itemModal"><div class="modal">
+  <div class="modal-header"><h2>📋 بند صيانة دورية</h2><button class="modal-close" onclick="closeModal('itemModal')">&times;</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="itId">
+    <div class="form-group"><label class="form-label">رقم البند</label><input type="number" class="form-input" id="itNum" min="1"></div>
+    <div class="form-group"><label class="form-label">اسم البند</label><input type="text" class="form-input" id="itName"></div>
+    <div class="form-group"><label class="form-label">الفئة</label><select class="form-select" id="itCat"><option value="safety">🛡️ سلامة</option><option value="electrical">⚡ كهرباء</option><option value="mechanical">🔧 ميكانيكا</option><option value="navigation">🧭 ملاحة</option><option value="communication">📡 اتصالات</option><option value="security">🔒 أمن</option></select></div>
+    <div class="form-group"><label class="form-label">الفترة بين الصيانات (يوم)</label><input type="number" class="form-input" id="itFreq" min="1" value="30"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('itemModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="saveItem()">💾 حفظ</button></div>
+</div></div>
+
+<div class="modal-overlay" id="periodicModal"><div class="modal">
+  <div class="modal-header"><h2>🔧 تنفيذ صيانة دورية</h2><button class="modal-close" onclick="closeModal('periodicModal')">&times;</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="pmItemId"><input type="hidden" id="pmUnitId">
+    <div class="form-group"><label class="form-label">البند</label><input type="text" class="form-input" id="pmItemName" readonly></div>
+    <div class="form-group"><label class="form-label">الوحدة</label><input type="text" class="form-input" id="pmUnitName" readonly></div>
+    <div class="form-group"><label class="form-label">تاريخ التنفيذ</label><input type="date" class="form-input" id="pmDate"></div>
+    <div class="form-group"><label class="form-label">الملاحظات</label><textarea class="form-textarea" id="pmNotes" placeholder="ملاحظات الصيانة..."></textarea></div>
+    <div class="form-group">
+      <label class="form-label">الصور</label>
+      <div class="photo-upload" onclick="document.getElementById('pmPhotos').click()">📷 اضغط لرفع الصور<input type="file" id="pmPhotos" multiple accept="image/*" style="display:none" onchange="previewPhotos(this,'pmPreview')"></div>
+      <div class="photo-preview" id="pmPreview"></div>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('periodicModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="savePeriodic()">✅ تأكيد التنفيذ</button></div>
+</div></div>
+
+<div class="modal-overlay" id="breakdownModal"><div class="modal">
+  <div class="modal-header"><h2 id="bdTitle">⚠️ صيانة عطل</h2><button class="modal-close" onclick="closeModal('breakdownModal')">&times;</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="bdUnitId">
+    <div class="form-group"><label class="form-label">نوع الصيانة</label><select class="form-select" id="bdType"><option value="breakdown">⚠️ صيانة عطل</option><option value="other">📝 صيانة أخرى</option></select></div>
+    <div class="form-group"><label class="form-label">الوحدة</label><input type="text" class="form-input" id="bdUnitName" readonly></div>
+    <div class="form-group"><label class="form-label">وصف العطل / العمل</label><textarea class="form-textarea" id="bdDesc" placeholder="وصف العطل أو العمل..."></textarea></div>
+    <div class="form-group"><label class="form-label">ما تم إنجازه</label><textarea class="form-textarea" id="bdActions" placeholder="ما تم إنجازه..."></textarea></div>
+    <div class="form-group">
+      <label class="form-label">الصور</label>
+      <div class="photo-upload" onclick="document.getElementById('bdPhotos').click()">📷 اضغط لرفع الصور<input type="file" id="bdPhotos" multiple accept="image/*" style="display:none" onchange="previewPhotos(this,'bdPreview')"></div>
+      <div class="photo-preview" id="bdPreview"></div>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('breakdownModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="saveBreakdown()">💾 حفظ</button></div>
+</div></div>
+
+<div class="modal-overlay" id="instModal"><div class="modal">
+  <div class="modal-header"><h2>📋 إرسال تعليمات</h2><button class="modal-close" onclick="closeModal('instModal')">&times;</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label class="form-label">إلى الفني</label><select class="form-select" id="instTech"></select></div>
+    <div class="form-group"><label class="form-label">الوحدة (اختياري)</label><select class="form-select" id="instUnit"><option value="">-- بدون وحدة --</option></select></div>
+    <div class="form-group"><label class="form-label">نص التعليمات</label><textarea class="form-textarea" id="instText" placeholder="اكتب التعليمات..."></textarea></div>
+    <div class="form-group"><label class="form-label">الأولوية</label><select class="form-select" id="instPrio"><option value="low">🟢 منخفضة</option><option value="medium" selected>🟡 متوسطة</option><option value="high">🔴 عالية</option><option value="urgent">🚨 عاجلة</option></select></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('instModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="sendInst()">📨 إرسال</button></div>
+</div></div>
+
+<div class="modal-overlay" id="spareModal"><div class="modal">
+  <div class="modal-header"><h2>🔩 طلب قطعة غيار</h2><button class="modal-close" onclick="closeModal('spareModal')">&times;</button></div>
+  <div class="modal-body">
+    <div class="form-group"><label class="form-label">اسم القطعة / الرقم الكودي</label><input type="text" class="form-input" id="spName" placeholder="مثال: فلتر زيت محرك"></div>
+    <div class="form-group"><label class="form-label">الكمية</label><input type="number" class="form-input" id="spQty" min="1" value="1"></div>
+    <div class="form-group"><label class="form-label">الوحدة</label><select class="form-select" id="spUnit"><option value="">-- اختر الوحدة --</option></select></div>
+    <div class="form-group"><label class="form-label">السبب / التوضيح</label><textarea class="form-textarea" id="spReason" placeholder="لماذا تحتاج هذه القطعة؟"></textarea></div>
+    <div class="form-group"><label class="form-label">الأولوية</label><select class="form-select" id="spPrio"><option value="normal">🟡 عادية</option><option value="urgent">🔴 عاجلة</option></select></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeModal('spareModal')">إلغاء</button><button class="btn btn-success btn-sm" onclick="saveSpare()">💾 حفظ الطلب</button></div>
+</div></div>
+
+<script>
+// ============================================================
+// JSONbin.io — قاعدة البيانات المشتركة عبر الإنترنت
+// ============================================================
+const JSONBIN_API_KEY = '$2a$10$4rN/Bih9.xq9e03kSShEFO.TxHc4ejh229XpwRZwua/4Sba.idwQ6';
+const JSONBIN_BASE    = 'https://api.jsonbin.io/v3';
+let   BIN_ID          = localStorage.getItem('mnt_bin_id') || null;
+const POLL_MS         = 15000;
+
+let DB = { users:[], units:[], items:[], maintenance:[], instructions:[], spares:[] };
+let CU = null;
+let spareFilter = 'all';
+let activeUnit  = null;
+let pollTimer   = null;
+
+const DEFAULT_USERS = [
+  {id:'u1',name:'المدير العام',  username:'admin', password:'admin123',role:'admin',      phone:''},
+  {id:'u2',name:'المشرف الأول', username:'مشرف',  password:'super123',role:'supervisor', phone:''},
+  {id:'u3',name:'فني أول',       username:'فني1',  password:'tech123', role:'technician',phone:''}
+];
+const DEFAULT_UNITS = [
+  {id:'un1',code:'UNIT-001',name:'الوحدة الرئيسية',location:'الميناء الشمالي',status:'active'},
+  {id:'un2',code:'UNIT-002',name:'الباجة رقم 1',   location:'القناة الرئيسية',status:'active'},
+  {id:'un3',code:'UNIT-003',name:'القاطرة البحرية', location:'حوض الإصلاح',   status:'maintenance'}
+];
+const DEFAULT_ITEMS = [
+  {id:'it1',num:1,name:'فحص طفايات الحريق',   cat:'safety',        freq:30},
+  {id:'it2',num:2,name:'صيانة المحرك الرئيسي',cat:'mechanical',    freq:90},
+  {id:'it3',num:3,name:'فحص أجهزة الملاحة',   cat:'navigation',    freq:60},
+  {id:'it4',num:4,name:'فحص لوحات الكهرباء',  cat:'electrical',    freq:45},
+  {id:'it5',num:5,name:'فحص أجهزة الاتصال',   cat:'communication', freq:30},
+  {id:'it6',num:6,name:'فحص كاميرات المراقبة',cat:'security',      freq:90}
+];
+
+// ---------- JSONbin API ----------
+async function apiLoad() {
+  if (!BIN_ID) return false;
+  try {
+    const r = await fetch(`${JSONBIN_BASE}/b/${BIN_ID}/latest`, {
+      headers: {'X-Master-Key': JSONBIN_API_KEY}
+    });
+    if (!r.ok) return false;
+    const j = await r.json();
+    DB = j.record;
+    if (!DB.spares) DB.spares = [];
+    return true;
+  } catch(e) { return false; }
+}
+
+async function apiSave() {
+  try {
+    if (!BIN_ID) {
+      // إنشاء Bin جديد
+      const r = await fetch(`${JSONBIN_BASE}/b`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY,'X-Bin-Name':'MaintenanceSystem','X-Bin-Private':'false'},
+        body: JSON.stringify(DB)
+      });
+      if (!r.ok) throw new Error('create failed');
+      const j = await r.json();
+      BIN_ID = j.metadata.id;
+      localStorage.setItem('mnt_bin_id', BIN_ID);
+    } else {
+      const r = await fetch(`${JSONBIN_BASE}/b/${BIN_ID}`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_API_KEY},
+        body: JSON.stringify(DB)
+      });
+      if (!r.ok) throw new Error('update failed');
+    }
+    showSyncBar('success');
+    return true;
+  } catch(e) {
+    showSyncBar('error');
+    toast('تعذر حفظ البيانات — تحقق من الاتصال', 'danger');
+    return false;
+  }
+}
+
+function showSyncBar(type) {
+  const bar = document.getElementById('syncBar');
+  if (type === 'success') {
+    bar.textContent = '✅ تم مزامنة البيانات مع الخادم — جميع أفراد الفريق يرون التحديث';
+    bar.className = 'sync-bar show';
+  } else {
+    bar.textContent = '❌ خطأ في الاتصال بالخادم — تحقق من الإنترنت';
+    bar.className = 'sync-bar show error';
+  }
+  setTimeout(() => bar.classList.remove('show'), 4000);
+}
+
+// ---------- Init ----------
+async function initDB() {
+  document.getElementById('loadingMsg').textContent = 'جاري الاتصال بقاعدة البيانات المشتركة...';
+  const ok = await apiLoad();
+  if (!ok) {
+    document.getElementById('loadingMsg').textContent = 'إنشاء قاعدة بيانات جديدة...';
+    DB = {
+      users: JSON.parse(JSON.stringify(DEFAULT_USERS)),
+      units: JSON.parse(JSON.stringify(DEFAULT_UNITS)),
+      items: JSON.parse(JSON.stringify(DEFAULT_ITEMS)),
+      maintenance:[], instructions:[], spares:[]
+    };
+    await apiSave();
+  }
+}
+
+// ---------- Helpers ----------
+function uid()  { return 'id'+Date.now()+Math.random().toString(36).substr(2,5); }
+function today(){ return new Date().toISOString().split('T')[0]; }
+function fmt(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('ar-EG',{year:'numeric',month:'short',day:'numeric'}); }
+  catch(e){ return d; }
+}
+function daysDiff(d){ return d ? Math.round((Date.now()-new Date(d))/86400000) : 9999; }
+
+function toast(msg,type='success'){
+  const el=document.createElement('div');
+  el.className='toast '+type; el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+// ---------- Navigation ----------
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const pages=['dashboard','units','maintenance','instructions','spareparts','reports','admin'];
+  const idx=pages.indexOf(id);
+  const btns=document.querySelectorAll('.nav-btn');
+  if(idx>=0&&btns[idx])btns[idx].classList.add('active');
+  if(id==='dashboard')renderDashboard();
+  if(id==='units')renderUnits();
+  if(id==='instructions')renderInstructions();
+  if(id==='spareparts')renderSpares();
+  if(id==='reports')prepReport();
+  if(id==='admin')showAdm('users');
+}
+
+function openModal(id){
+  clearModal(id);
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function clearModal(id){
+  if(id==='userModal'){['uId','uName','uUser','uPass','uPhone'].forEach(x=>document.getElementById(x).value='');document.getElementById('uRole').value='technician';}
+  if(id==='unitModal'){['unId','unCode','unName','unLocation'].forEach(x=>document.getElementById(x).value='');document.getElementById('unStatus').value='active';}
+  if(id==='itemModal'){['itId','itName','itNum'].forEach(x=>document.getElementById(x).value='');document.getElementById('itCat').value='safety';document.getElementById('itFreq').value='30';}
+  if(id==='instModal'){
+    const ts=DB.users.filter(u=>u.role==='technician');
+    document.getElementById('instTech').innerHTML=ts.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+    document.getElementById('instUnit').innerHTML='<option value="">-- بدون وحدة --</option>'+DB.units.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+    document.getElementById('instText').value=''; document.getElementById('instPrio').value='medium';
+  }
+  if(id==='spareModal'){
+    ['spName','spReason'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('spQty').value='1'; document.getElementById('spPrio').value='normal';
+    document.getElementById('spUnit').innerHTML='<option value="">-- اختر الوحدة --</option>'+DB.units.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  }
+}
+
+// ---------- Auth ----------
+async function doLogin(){
+  const usr=document.getElementById('lgUser').value.trim();
+  const pw=document.getElementById('lgPass').value.trim();
+  if(!usr||!pw){toast('أدخل بيانات تسجيل الدخول','warning');return;}
+  document.getElementById('loadingScreen').style.display='flex';
+  document.getElementById('loadingMsg').textContent='جاري التحقق من البيانات...';
+  await apiLoad();
+  document.getElementById('loadingScreen').style.display='none';
+  const u=DB.users.find(x=>x.username===usr&&x.password===pw);
+  if(!u){toast('اسم المستخدم أو كلمة المرور خاطئة','danger');return;}
+  CU=u;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  document.getElementById('hUserName').textContent=u.name;
+  const rMap={admin:'مدير النظام',supervisor:'مشرف',technician:'فني'};
+  document.getElementById('hRole').textContent=rMap[u.role]||u.role;
+  if(u.role==='admin'||u.role==='supervisor') document.getElementById('btnAddUnit').style.display='';
+  if(u.role!=='technician') document.getElementById('btnAddInst').style.display='';
+  if(u.role==='admin') document.getElementById('navAdmin').style.display='';
+  startPolling(); renderDashboard(); updateTicker();
+}
+
+function doLogout(){
+  CU=null; stopPolling();
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('loginPage').style.display='flex';
+  document.getElementById('lgUser').value=''; document.getElementById('lgPass').value='';
+}
+
+function startPolling(){
+  stopPolling();
+  pollTimer=setInterval(async()=>{
+    await apiLoad();
+    if(document.getElementById('dashboard').classList.contains('active'))renderDashboard();
+    if(document.getElementById('spareparts').classList.contains('active'))renderSpares();
+    if(document.getElementById('instructions').classList.contains('active'))renderInstructions();
+    updateTicker();
+  },POLL_MS);
+}
+function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
+
+// ---------- Dashboard ----------
+function renderDashboard(){
+  document.getElementById('sUnits').textContent=DB.units.length;
+  document.getElementById('sTechs').textContent=DB.users.filter(u=>u.role==='technician').length;
+  document.getElementById('sMaint').textContent=DB.maintenance.length;
+  const ov=getOverdue();
+  document.getElementById('sOverdue').textContent=ov.length;
+  document.getElementById('sSpare').textContent=(DB.spares||[]).filter(s=>s.status==='pending').length;
+  const myInst=CU?(CU.role==='technician'?DB.instructions.filter(i=>i.toId===CU.id):DB.instructions).slice(-5).reverse():[];
+  document.getElementById('dashInst').innerHTML=myInst.length?myInst.map(renderInstCard).join(''):'<div class="empty"><div class="ei">📭</div><p>لا توجد تعليمات</p></div>';
+  document.getElementById('dashOverdue').innerHTML=ov.length?ov.slice(0,5).map(o=>`
+    <div class="period-item overdue"><div><div class="pi-name">${o.itemName}</div><div class="pi-sub">🚢 ${o.unitName} — متأخر ${o.days===9999?'(لم تُنفذ قط)':o.days+' يوم'}</div></div><span class="badge b-danger">متأخر</span></div>`).join('')
+    :'<div class="empty"><div class="ei">✅</div><p>لا توجد متأخرات</p></div>';
+}
+
+function getOverdue(){
+  const res=[];
+  DB.units.forEach(u=>{
+    DB.items.forEach(it=>{
+      const logs=DB.maintenance.filter(m=>m.type==='periodic'&&m.itemId===it.id&&m.unitId===u.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+      const days=logs[0]?daysDiff(logs[0].date):9999;
+      if(days>it.freq)res.push({itemName:it.name,unitName:u.name,days,unitId:u.id,itemId:it.id});
+    });
+  });
+  return res;
+}
+
+// ---------- Units ----------
+function renderUnits(){
+  const q=(document.getElementById('unitSearch').value||'').toLowerCase();
+  const units=DB.units.filter(u=>!q||u.name.includes(q)||u.code.toLowerCase().includes(q)||u.location.includes(q));
+  const sMap={active:'s-active',maintenance:'s-maint',out:'s-out'};
+  const sLabel={active:'✅ نشطة',maintenance:'🔧 تحت الصيانة',out:'❌ خارج الخدمة'};
+  document.getElementById('unitsGrid').innerHTML=units.length?units.map(u=>`
+    <div class="unit-card" onclick="openUnitMaint('${u.id}')">
+      <div class="unit-icon">🚢</div>
+      <div class="unit-name">${u.name}</div>
+      <div class="unit-location">📍 ${u.location}</div>
+      <div class="unit-code">🔖 ${u.code}</div>
+      <span class="unit-status ${sMap[u.status]||'s-active'}">${sLabel[u.status]||u.status}</span>
+    </div>`).join(''):'<div class="empty" style="grid-column:1/-1"><div class="ei">🔍</div><p>لا توجد نتائج</p></div>';
+}
+
+function openUnitMaint(uid){
+  activeUnit=DB.units.find(u=>u.id===uid);
+  if(!activeUnit)return;
+  showPage('maintenance'); renderMaintPage();
+}
+
+// ---------- Maintenance ----------
+function renderMaintPage(){
+  if(!activeUnit){document.getElementById('maintContent').innerHTML='<div class="empty"><div class="ei">🚢</div><p>اختر وحدة أولاً</p></div>';return;}
+  const u=activeUnit;
+  document.getElementById('maintContent').innerHTML=`
+    <div style="margin-bottom:14px"><h3 style="color:var(--pr);font-size:1.05rem">🚢 ${u.name} <span style="font-size:.83rem;color:#888;font-weight:400">— ${u.code} | ${u.location}</span></h3></div>
+    <div class="mtype-grid">
+      <div class="mtype-card"><div class="icon">📅</div><h3>الصيانة الدورية</h3><p>متابعة وتسجيل بنود الصيانة المقررة</p><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="showPeriodicList()">عرض البنود</button></div>
+      <div class="mtype-card"><div class="icon">⚠️</div><h3>صيانة عطل</h3><p>تسجيل أعطال وإصلاحات طارئة</p><button class="btn btn-warning btn-sm" style="margin-top:12px" onclick="openBreakdown('${u.id}','${u.name}','breakdown')">تسجيل عطل</button></div>
+      <div class="mtype-card"><div class="icon">📝</div><h3>صيانة أخرى</h3><p>أعمال صيانة أخرى وتحسينات</p><button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="openBreakdown('${u.id}','${u.name}','other')">تسجيل</button></div>
+    </div>
+    <div id="periodicSection" style="margin-top:18px"></div>
+    <div class="card" style="margin-top:14px">
+      <div class="card-header"><span class="card-title">📋 سجل الصيانة</span></div>
+      <div id="maintLog">${renderMaintLog(u.id)}</div>
+    </div>`;
+}
+
+function showPeriodicList(){
+  if(!activeUnit)return;
+  const u=activeUnit;
+  const html=DB.items.map(it=>{
+    const logs=DB.maintenance.filter(m=>m.type==='periodic'&&m.itemId===it.id&&m.unitId===u.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const last=logs[0]; const days=last?daysDiff(last.date):null;
+    const overdue=days===null||days>it.freq; const soon=days!==null&&days>it.freq*.8&&!overdue;
+    const cls=overdue?'overdue':soon?'due-soon':'ok';
+    const badge=days===null?'<span class="badge b-danger">لم تُنفذ بعد</span>':overdue?`<span class="badge b-danger">متأخر ${days} يوم</span>`:soon?`<span class="badge b-warning">قريباً (${days}/${it.freq})</span>`:`<span class="badge b-success">${days} يوم منذ آخر تنفيذ</span>`;
+    return `<div class="period-item ${cls}"><div><div class="pi-name">${it.num}. ${it.name}</div><div class="pi-sub">كل ${it.freq} يوم — آخر تنفيذ: ${last?fmt(last.date):'لم تُنفذ'}</div></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${badge}<button class="btn btn-success btn-sm" onclick="openPeriodic('${it.id}','${u.id}')">✅ تنفيذ</button></div></div>`;
+  }).join('');
+  document.getElementById('periodicSection').innerHTML=`<div class="card"><div class="card-header"><span class="card-title">📅 بنود الصيانة الدورية</span></div>${html}</div>`;
+}
+
+function renderMaintLog(uid){
+  const logs=DB.maintenance.filter(m=>m.unitId===uid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!logs.length)return'<div class="empty"><div class="ei">📋</div><p>لا يوجد سجل صيانة بعد</p></div>';
+  return logs.map(m=>{
+    const tech=DB.users.find(u=>u.id===m.techId);
+    const item=m.type==='periodic'?DB.items.find(i=>i.id===m.itemId):null;
+    const tLabel={periodic:'📅 دورية',breakdown:'⚠️ عطل',other:'📝 أخرى'}[m.type]||m.type;
+    return `<div class="log-entry"><div class="log-head"><span class="log-tech">👷 ${tech?tech.name:'مجهول'}</span><span class="log-date">${fmt(m.date)} — ${tLabel}</span></div>${item?`<div style="font-size:.8rem;color:var(--pr);margin-bottom:4px;font-weight:600">📋 ${item.name}</div>`:''}<div class="log-notes">${(m.desc||m.notes||'').replace(/\n/g,'<br>')}</div>${m.photos&&m.photos.length?`<div class="log-photos">${m.photos.map(p=>`<img src="${p}" onclick="window.open(this.src)">`).join('')}</div>`:''}</div>`;
+  }).join('');
+}
+
+function openPeriodic(itemId,unitId){
+  const item=DB.items.find(i=>i.id===itemId); const unit=DB.units.find(u=>u.id===unitId);
+  document.getElementById('pmItemId').value=itemId; document.getElementById('pmUnitId').value=unitId;
+  document.getElementById('pmItemName').value=item?item.name:''; document.getElementById('pmUnitName').value=unit?unit.name:'';
+  document.getElementById('pmDate').value=today(); document.getElementById('pmNotes').value=''; document.getElementById('pmPreview').innerHTML='';
+  document.getElementById('periodicModal').classList.add('open');
+}
+
+async function savePeriodic(){
+  const itemId=document.getElementById('pmItemId').value; const unitId=document.getElementById('pmUnitId').value;
+  const date=document.getElementById('pmDate').value; const notes=document.getElementById('pmNotes').value;
+  if(!date){toast('اختر تاريخ التنفيذ','warning');return;}
+  const photos=Array.from(document.getElementById('pmPreview').querySelectorAll('img')).map(i=>i.src);
+  DB.maintenance.push({id:uid(),type:'periodic',itemId,unitId,techId:CU.id,date,notes,photos,createdAt:new Date().toISOString()});
+  await apiSave(); closeModal('periodicModal'); toast('تم تسجيل الصيانة الدورية ✅','success');
+  showPeriodicList(); document.getElementById('maintLog').innerHTML=renderMaintLog(unitId); renderDashboard(); updateTicker();
+}
+
+function openBreakdown(unitId,unitName,type){
+  document.getElementById('bdUnitId').value=unitId; document.getElementById('bdUnitName').value=unitName;
+  document.getElementById('bdType').value=type; document.getElementById('bdDesc').value=''; document.getElementById('bdActions').value=''; document.getElementById('bdPreview').innerHTML='';
+  document.getElementById('bdTitle').textContent=type==='breakdown'?'⚠️ تسجيل صيانة عطل':'📝 تسجيل صيانة أخرى';
+  document.getElementById('breakdownModal').classList.add('open');
+}
+
+async function saveBreakdown(){
+  const unitId=document.getElementById('bdUnitId').value; const type=document.getElementById('bdType').value;
+  const desc=document.getElementById('bdDesc').value.trim(); const actions=document.getElementById('bdActions').value.trim();
+  if(!desc||!actions){toast('اكتب الوصف وما تم إنجازه','warning');return;}
+  const photos=Array.from(document.getElementById('bdPreview').querySelectorAll('img')).map(i=>i.src);
+  DB.maintenance.push({id:uid(),type,unitId,techId:CU.id,date:today(),desc:`${desc}\n\nما تم إنجازه:\n${actions}`,photos,createdAt:new Date().toISOString()});
+  await apiSave(); closeModal('breakdownModal'); toast('تم حفظ تقرير الصيانة ✅','success'); renderMaintPage(); updateTicker();
+}
+
+// ---------- Instructions ----------
+function renderInstructions(){
+  const insts=CU.role==='technician'?DB.instructions.filter(i=>i.toId===CU.id):DB.instructions;
+  document.getElementById('instList').innerHTML=insts.length?[...insts].reverse().map(renderInstCard).join(''):'<div class="empty"><div class="ei">📭</div><p>لا توجد تعليمات</p></div>';
+}
+
+function renderInstCard(i){
+  const from=DB.users.find(u=>u.id===i.fromId); const to=DB.users.find(u=>u.id===i.toId);
+  const pMap={low:'p-low',medium:'p-med',high:'p-high',urgent:'p-urg'};
+  const pLabel={low:'🟢 منخفضة',medium:'🟡 متوسطة',high:'🔴 عالية',urgent:'🚨 عاجلة'};
+  const unit=i.unitId?DB.units.find(u=>u.id===i.unitId):null;
+  return `<div class="inst-card"><div class="inst-head"><span class="inst-from">من: ${from?from.name:'نظام'} ← إلى: ${to?to.name:'؟'}</span><span class="inst-date">${fmt(i.date)}</span></div><div class="inst-text">${i.text}</div>${unit?`<div style="margin-top:6px;font-size:.8rem;color:#888">🚢 ${unit.name}</div>`:''}<span class="badge ${pMap[i.prio]||'p-med'}" style="margin-top:10px;display:inline-block">${pLabel[i.prio]||i.prio}</span></div>`;
+}
+
+async function sendInst(){
+  const toId=document.getElementById('instTech').value; const unitId=document.getElementById('instUnit').value;
+  const text=document.getElementById('instText').value.trim(); const prio=document.getElementById('instPrio').value;
+  if(!toId||!text){toast('اختر فني واكتب التعليمات','warning');return;}
+  DB.instructions.push({id:uid(),fromId:CU.id,toId,unitId,text,prio,date:today(),createdAt:new Date().toISOString()});
+  await apiSave(); closeModal('instModal'); toast('تم إرسال التعليمات 📨','success'); renderInstructions(); updateTicker();
+}
+
+// ---------- Spare Parts ----------
+function setSpareFilter(f){spareFilter=f;renderSpares();}
+
+function renderSpares(){
+  let spares=DB.spares||[];
+  if(spareFilter==='pending')spares=spares.filter(s=>s.status==='pending');
+  else if(spareFilter==='fulfilled')spares=spares.filter(s=>s.status==='fulfilled');
+  document.getElementById('spareList').innerHTML=spares.length?[...spares].reverse().map(s=>{
+    const tech=DB.users.find(u=>u.id===s.techId); const unit=s.unitId?DB.units.find(u=>u.id===s.unitId):null;
+    const done=s.status==='fulfilled'; const canFulfill=!done&&CU&&CU.role!=='technician';
+    return `<div class="spare-item ${done?'fulfilled':''}"><div class="spare-head"><div class="spare-name">🔩 ${s.name} × ${s.qty} ${s.prio==='urgent'?'<span class="badge b-danger" style="font-size:.72rem">عاجل</span>':''}</div><div class="spare-sub">👷 ${tech?tech.name:'—'} ${unit?'| 🚢 '+unit.name:''} — 📅 ${fmt(s.date)}</div>${s.reason?`<div style="color:#555;font-size:.82rem;margin-top:4px">📝 ${s.reason}</div>`:''} ${done&&s.fulfilledAt?`<div style="color:var(--suc);font-size:.78rem;margin-top:4px">✅ تم التوفير في ${fmt(s.fulfilledAt)}</div>`:''}</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${done?'<span class="badge b-success">✅ تم التوفير</span>':canFulfill?`<button class="btn btn-success btn-sm" onclick="fulfillSpare('${s.id}')">✅ تم التوفير</button>`:'<span class="badge b-warning">⏳ قيد الانتظار</span>'}${CU&&CU.role==='admin'?`<button class="btn btn-danger btn-sm" onclick="deleteSpare('${s.id}')">🗑️</button>`:''}</div></div>`;
+  }).join(''):'<div class="empty"><div class="ei">🔩</div><p>لا توجد طلبات قطع غيار</p></div>';
+}
+
+async function saveSpare(){
+  const name=document.getElementById('spName').value.trim();
+  if(!name){toast('اكتب اسم القطعة','warning');return;}
+  const qty=document.getElementById('spQty').value; const unitId=document.getElementById('spUnit').value;
+  const reason=document.getElementById('spReason').value.trim(); const prio=document.getElementById('spPrio').value;
+  if(!DB.spares)DB.spares=[];
+  DB.spares.push({id:uid(),name,qty,unitId,reason,prio,techId:CU.id,date:today(),status:'pending',createdAt:new Date().toISOString()});
+  await apiSave(); closeModal('spareModal'); toast('تم حفظ طلب قطعة الغيار 🔩','success'); renderSpares(); renderDashboard(); updateTicker();
+}
+
+async function fulfillSpare(id){
+  const s=(DB.spares||[]).find(x=>x.id===id); if(!s)return;
+  s.status='fulfilled'; s.fulfilledAt=new Date().toISOString(); s.fulfilledBy=CU.id;
+  await apiSave(); toast('تم تسجيل توفير القطعة ✅','success'); renderSpares(); renderDashboard(); updateTicker();
+}
+
+async function deleteSpare(id){
+  if(!confirm('حذف هذا الطلب؟'))return;
+  DB.spares=(DB.spares||[]).filter(s=>s.id!==id);
+  await apiSave(); toast('تم الحذف','success'); renderSpares();
+}
+
+// ---------- Ticker ----------
+function updateTicker(){
+  const items=[];
+  getOverdue().slice(0,4).forEach(o=>items.push({text:`⚠️ صيانة متأخرة: ${o.itemName} على ${o.unitName} (${o.days===9999?'لم تُنفذ قط':o.days+' يوم'})`,cls:'urgent'}));
+  (DB.spares||[]).filter(s=>s.status==='pending'&&s.prio==='urgent').slice(0,3).forEach(s=>{const u=DB.units.find(x=>x.id===s.unitId);items.push({text:`🔩 طلب عاجل: ${s.name}${u?' ('+u.name+')':''}`,cls:'spare'});});
+  if(CU){
+    DB.instructions.filter(i=>i.toId===CU.id&&i.prio==='urgent').slice(0,2).forEach(i=>items.push({text:`🚨 تعليمات عاجلة: ${i.text.substring(0,50)}`,cls:'urgent'}));
+    (DB.spares||[]).filter(s=>s.status==='pending'&&s.prio!=='urgent').slice(0,2).forEach(s=>{const u=DB.units.find(x=>x.id===s.unitId);items.push({text:`🔩 طلب قطعة: ${s.name}${u?' — '+u.name:''}`,cls:'spare'});});
+  }
+  if(!items.length){document.getElementById('tickerBar').style.display='none';return;}
+  const doubled=[...items,...items];
+  document.getElementById('tickerInner').innerHTML=doubled.map(i=>`<span class="ticker-item ${i.cls}">● ${i.text}</span>`).join('');
+  document.getElementById('tickerBar').style.display='block';
+}
+
+// ---------- Admin ----------
+function showAdm(sec){
+  ['admUsers','admAunits','admItems','admData'].forEach(s=>document.getElementById(s).style.display='none');
+  const map={users:'admUsers',aunits:'admAunits',items:'admItems',data:'admData'};
+  if(map[sec])document.getElementById(map[sec]).style.display='';
+  if(sec==='users'){
+    document.getElementById('tUsers').innerHTML=DB.users.map(u=>`<tr><td>${u.name}</td><td>${u.username}</td><td>${{admin:'👨‍💻 مدير',supervisor:'👨‍💼 مشرف',technician:'👷 فني'}[u.role]||u.role}</td><td><button class="btn btn-warning btn-sm" onclick="editUser('${u.id}')">✏️ تعديل</button> <button class="btn btn-danger btn-sm" onclick="delUser('${u.id}')">🗑️</button></td></tr>`).join('');
+  }
+  if(sec==='aunits'){
+    const sL={active:'✅ نشطة',maintenance:'🔧 صيانة',out:'❌ خارج'};
+    document.getElementById('tAdmUnits').innerHTML=DB.units.map(u=>`<tr><td>${u.code}</td><td>${u.name}</td><td>${u.location}</td><td>${sL[u.status]||u.status}</td><td><button class="btn btn-warning btn-sm" onclick="editUnit('${u.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="delUnit('${u.id}')">🗑️</button></td></tr>`).join('');
+  }
+  if(sec==='items'){
+    const cL={safety:'🛡️ سلامة',electrical:'⚡ كهرباء',mechanical:'🔧 ميكانيكا',navigation:'🧭 ملاحة',communication:'📡 اتصالات',security:'🔒 أمن'};
+    document.getElementById('tItems').innerHTML=[...DB.items].sort((a,b)=>a.num-b.num).map(it=>`<tr><td>${it.num}</td><td>${it.name}</td><td>${cL[it.cat]||it.cat}</td><td>${it.freq} يوم</td><td><button class="btn btn-warning btn-sm" onclick="editItem('${it.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="delItem('${it.id}')">🗑️</button></td></tr>`).join('');
+  }
+}
+
+async function saveUser(){
+  const id=document.getElementById('uId').value; const name=document.getElementById('uName').value.trim();
+  const username=document.getElementById('uUser').value.trim(); const pass=document.getElementById('uPass').value;
+  const role=document.getElementById('uRole').value; const phone=document.getElementById('uPhone').value;
+  if(!name||!username){toast('أدخل الاسم واسم المستخدم','warning');return;}
+  if(id){const u=DB.users.find(x=>x.id===id);if(u){u.name=name;u.username=username;u.role=role;u.phone=phone;if(pass)u.password=pass;}}
+  else{if(!pass){toast('أدخل كلمة المرور','warning');return;}DB.users.push({id:uid(),name,username,password:pass,role,phone});}
+  await apiSave();closeModal('userModal');toast('تم الحفظ ✅','success');showAdm('users');
+}
+function editUser(id){const u=DB.users.find(x=>x.id===id);if(!u)return;document.getElementById('uId').value=u.id;document.getElementById('uName').value=u.name;document.getElementById('uUser').value=u.username;document.getElementById('uPass').value='';document.getElementById('uRole').value=u.role;document.getElementById('uPhone').value=u.phone||'';document.getElementById('userModal').classList.add('open');}
+async function delUser(id){if(!confirm('حذف هذا المستخدم؟'))return;DB.users=DB.users.filter(u=>u.id!==id);await apiSave();toast('تم الحذف','success');showAdm('users');}
+
+async function saveUnit(){
+  const id=document.getElementById('unId').value; const code=document.getElementById('unCode').value.trim();
+  const name=document.getElementById('unName').value.trim(); const location=document.getElementById('unLocation').value.trim(); const status=document.getElementById('unStatus').value;
+  if(!name||!code){toast('أدخل الاسم والكود','warning');return;}
+  if(id){const u=DB.units.find(x=>x.id===id);if(u){u.code=code;u.name=name;u.location=location;u.status=status;}}
+  else DB.units.push({id:uid(),code,name,location,status});
+  await apiSave();closeModal('unitModal');toast('تم الحفظ ✅','success');renderUnits();showAdm('aunits');
+}
+function editUnit(id){const u=DB.units.find(x=>x.id===id);if(!u)return;document.getElementById('unId').value=u.id;document.getElementById('unCode').value=u.code;document.getElementById('unName').value=u.name;document.getElementById('unLocation').value=u.location;document.getElementById('unStatus').value=u.status;document.getElementById('unitModal').classList.add('open');}
+async function delUnit(id){if(!confirm('حذف هذه الوحدة؟'))return;DB.units=DB.units.filter(u=>u.id!==id);await apiSave();toast('تم الحذف','success');showAdm('aunits');renderUnits();}
+
+async function saveItem(){
+  const id=document.getElementById('itId').value; const num=parseInt(document.getElementById('itNum').value);
+  const name=document.getElementById('itName').value.trim(); const cat=document.getElementById('itCat').value; const freq=parseInt(document.getElementById('itFreq').value);
+  if(!name||!num||!freq){toast('أدخل جميع الحقول','warning');return;}
+  if(id){const it=DB.items.find(x=>x.id===id);if(it){it.num=num;it.name=name;it.cat=cat;it.freq=freq;}}
+  else DB.items.push({id:uid(),num,name,cat,freq});
+  await apiSave();closeModal('itemModal');toast('تم الحفظ ✅','success');showAdm('items');
+}
+function editItem(id){const it=DB.items.find(x=>x.id===id);if(!it)return;document.getElementById('itId').value=it.id;document.getElementById('itNum').value=it.num;document.getElementById('itName').value=it.name;document.getElementById('itCat').value=it.cat;document.getElementById('itFreq').value=it.freq;document.getElementById('itemModal').classList.add('open');}
+async function delItem(id){if(!confirm('حذف هذا البند؟'))return;DB.items=DB.items.filter(i=>i.id!==id);await apiSave();toast('تم الحذف','success');showAdm('items');}
+
+function exportData(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='maintenance_backup.json';a.click();}
+async function resetData(){if(!confirm('تحذير: سيتم حذف جميع بيانات جميع المستخدمين. هل أنت متأكد؟'))return;DB={users:JSON.parse(JSON.stringify(DEFAULT_USERS)),units:JSON.parse(JSON.stringify(DEFAULT_UNITS)),items:JSON.parse(JSON.stringify(DEFAULT_ITEMS)),maintenance:[],instructions:[],spares:[]};await apiSave();toast('تم إعادة التعيين ✅','success');renderDashboard();}
+
+// ---------- Reports ----------
+function prepReport(){
+  const type=document.getElementById('rType').value; const sel=document.getElementById('rTarget');
+  sel.innerHTML='<option value="">الكل</option>';
+  if(type==='tech')DB.users.filter(u=>u.role==='technician').forEach(u=>sel.innerHTML+=`<option value="${u.id}">${u.name}</option>`);
+  else if(type==='unit')DB.units.forEach(u=>sel.innerHTML+=`<option value="${u.id}">${u.name}</option>`);
+}
+
+function genReport(){
+  const type=document.getElementById('rType').value; const target=document.getElementById('rTarget').value;
+  const from=document.getElementById('rFrom').value; const to=document.getElementById('rTo').value;
+  let data=DB.maintenance;
+  if(from)data=data.filter(m=>m.date>=from); if(to)data=data.filter(m=>m.date<=to);
+  let html='<div class="report-section">';
+  if(type==='tech'){
+    const techs=target?DB.users.filter(u=>u.id===target):DB.users.filter(u=>u.role==='technician');
+    techs.forEach(t=>{const maint=data.filter(m=>m.techId===t.id);html+=`<div class="report-title">👷 ${t.name} — ${maint.length} عملية</div>`;html+=maint.length?`<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الوحدة</th><th>الوصف</th></tr></thead><tbody>${maint.map(m=>{const u=DB.units.find(x=>x.id===m.unitId);return`<tr><td>${fmt(m.date)}</td><td>${{periodic:'دورية',breakdown:'عطل',other:'أخرى'}[m.type]||m.type}</td><td>${u?u.name:'—'}</td><td>${(m.notes||m.desc||'').substring(0,80)}</td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:#aaa;font-size:.85rem;padding:8px">لا توجد بيانات</p>';});
+  }else if(type==='unit'){
+    const units=target?DB.units.filter(u=>u.id===target):DB.units;
+    units.forEach(u=>{const maint=data.filter(m=>m.unitId===u.id);html+=`<div class="report-title">🚢 ${u.name} — ${maint.length} عملية</div>`;html+=maint.length?`<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الفني</th><th>الوصف</th></tr></thead><tbody>${maint.map(m=>{const t=DB.users.find(x=>x.id===m.techId);return`<tr><td>${fmt(m.date)}</td><td>${{periodic:'دورية',breakdown:'عطل',other:'أخرى'}[m.type]||m.type}</td><td>${t?t.name:'—'}</td><td>${(m.notes||m.desc||'').substring(0,80)}</td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:#aaa;font-size:.85rem;padding:8px">لا توجد بيانات</p>';});
+  }else if(type==='overdue'){
+    const ov=getOverdue();html+=`<div class="report-title">⚠️ المتأخرات — ${ov.length} بند</div>`;
+    html+=ov.length?`<div class="table-wrap"><table><thead><tr><th>البند</th><th>الوحدة</th><th>التأخير</th></tr></thead><tbody>${ov.map(x=>`<tr><td>${x.itemName}</td><td>${x.unitName}</td><td style="color:var(--dan);font-weight:700">${x.days===9999?'لم تُنفذ قط':x.days+' يوم'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><div class="ei">✅</div><p>لا توجد متأخرات</p></div>';
+  }else if(type==='spare'){
+    const spares=DB.spares||[];html+=`<div class="report-title">🔩 طلبات قطع الغيار — ${spares.length} طلب</div>`;
+    html+=spares.length?`<div class="table-wrap"><table><thead><tr><th>القطعة</th><th>الكمية</th><th>الفني</th><th>الوحدة</th><th>التاريخ</th><th>الأولوية</th><th>الحالة</th></tr></thead><tbody>${spares.map(s=>{const t=DB.users.find(u=>u.id===s.techId);const u=s.unitId?DB.units.find(x=>x.id===s.unitId):null;return`<tr><td>${s.name}</td><td>${s.qty}</td><td>${t?t.name:'—'}</td><td>${u?u.name:'—'}</td><td>${fmt(s.date)}</td><td>${s.prio==='urgent'?'🔴 عاجلة':'🟡 عادية'}</td><td>${s.status==='fulfilled'?'<span class="badge b-success">✅ تم</span>':'<span class="badge b-warning">⏳ انتظار</span>'}</td></tr>`}).join('')}</tbody></table></div>`:'<div class="empty"><div class="ei">🔩</div><p>لا توجد طلبات</p></div>';
+  }
+  html+='</div>'; document.getElementById('reportResult').innerHTML=html;
+}
+
+// ---------- Photos ----------
+function previewPhotos(input,previewId){
+  const preview=document.getElementById(previewId);
+  Array.from(input.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{const img=document.createElement('img');img.src=e.target.result;preview.appendChild(img);};
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---------- START ----------
+async function init(){
+  await initDB();
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('loginPage').style.display='flex';
+}
+init();
+</script>
+</body>
+</html>
